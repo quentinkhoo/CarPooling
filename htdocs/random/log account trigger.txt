@@ -1,0 +1,47 @@
+DROP TABLE person;
+DROP TABLE logAccount;
+DROP FUNCTION logAccount() CASCADE;
+CREATE TABLE person (
+    userID SERIAL PRIMARY KEY,
+	username VARCHAR(20) NOT NULL UNIQUE,
+	password VARCHAR(256) NOT NULL,
+	email VARCHAR(100) NOT NULL UNIQUE,
+	fullname VARCHAR(256) NOT NULL UNIQUE,
+	phone NUMERIC NOT NULL UNIQUE
+);
+
+CREATE TABLE logAccount (
+    	logID SERIAL PRIMARY KEY,
+	username VARCHAR(20) NOT NULL,
+	password VARCHAR(256) NOT NULL,
+	email VARCHAR(100) NOT NULL,
+	fullname VARCHAR(256) NOT NULL,
+	phone NUMERIC NOT NULL,
+	action VARCHAR(30) NOT NULL
+);
+
+CREATE OR REPLACE FUNCTION logAccount()
+RETURNS TRIGGER AS $$
+DECLARE action VARCHAR(30);
+BEGIN
+IF TG_OP ='INSERT' THEN
+action :='Registration'; 
+INSERT INTO logAccount(username,password,email,fullname,phone,action)  VALUES (NEW.username,NEW.password,NEW.email,NEW.fullname,NEW.phone,action);
+ELSIF TG_OP ='UPDATE' THEN
+action := 'Update account details';
+INSERT INTO logAccount(username,password,email,fullname,phone,action)  VALUES (OLD.username,OLD.password,OLD.email,OLD.fullname,OLD.phone,action);
+ELSIF TG_OP ='DELETE' THEN
+action := 'Delete account';
+INSERT INTO logAccount(username,password,email,fullname,phone,action)  VALUES (OLD.username,OLD.password,OLD.email,OLD.fullname,OLD.phone,action);
+END IF;
+RETURN NULL;
+END; $$
+LANGUAGE PLPGSQL;
+
+CREATE TRIGGER logAccount
+AFTER INSERT OR UPDATE OR DELETE ON person
+FOR EACH ROW
+EXECUTE PROCEDURE logAccount();
+
+
+

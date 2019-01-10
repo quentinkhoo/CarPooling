@@ -1,0 +1,67 @@
+CREATE TABLE person(
+	username VARCHAR(20) UNIQUE NOT NULL,
+	password VARCHAR(256) NOT NULL,
+	email VARCHAR(100) UNIQUE NOT NULL,
+	fullname VARCHAR(256) NOT NULL,
+	phone NUMERIC UNIQUE NOT NULL,
+	userid SERIAL PRIMARY KEY
+);
+CREATE TYPE seat AS ENUM('2-seater', '5-seater', '7-seater');
+CREATE TABLE car(
+	model VARCHAR(100) NOT NULL,
+	colour VARCHAR(50) NOT NULL,
+	seats seat NOT NULL,
+	license VARCHAR(10) UNIQUE NOT NULL,
+	carid SERIAL PRIMARY KEY
+);
+
+CREATE TYPE status AS ENUM('open','close');
+CREATE TABLE ride (
+	origin VARCHAR(256) NOT NULL,
+	dest VARCHAR(256) NOT NULL,
+	pickuptime TIMESTAMP NOT NULL,
+	minbid MONEY DEFAULT 0.00,
+	status status NOT NULL,
+	carid INTEGER NOT NULL,
+	advertiserid INTEGER NOT NULL,
+	FOREIGN KEY (advertiserid) REFERENCES person(userid),
+	FOREIGN KEY (carid) REFERENCES car(carid),
+	PRIMARY KEY (origin,dest,pickuptime,advertiserid)
+);	
+
+CREATE TABLE logRide (
+	origin VARCHAR(256) NOT NULL,
+	dest VARCHAR(256) NOT NULL,
+	pickuptime TIMESTAMP NOT NULL,
+	minbid MONEY DEFAULT 0.00,
+	status status NOT NULL,
+	carid INTEGER NOT NULL,
+	advertiserid INTEGER NOT NULL,
+	action VARCHAR(30)
+);
+
+DROP FUNCTION logRide() CASCADE;
+
+CREATE OR REPLACE FUNCTION logRide()
+RETURNS TRIGGER AS $$
+DECLARE action VARCHAR(30);
+BEGIN
+IF NEW.status := 'close' THEN
+action := 'Ride ended';
+INSERT INTO logRide(origin,dest,pickuptime,minbid,status,carid,advertiserid,action)  VALUES (OLD.origin,OLD.dest,OLD.pickuptime,OLD.minbid,OLD.status,OLD.carid,OLD.advertiserid,action);
+ELSIF TG_OP ='DELETE' THEN
+action := 'Deleted ride';
+ELSIF TG_op = 'UPDATE' THEN
+action := 'Updated Ride';
+INSERT INTO logRide(origin,dest,pickuptime,minbid,status,carid,advertiserid,action)  VALUES (OLD.origin,OLD.dest,OLD.pickuptime,OLD.minbid,OLD.status,OLD.carid,OLD.advertiserid,action);
+END IF;
+
+RETURN NULL;
+END; $$
+LANGUAGE PLPGSQL;
+
+CREATE TRIGGER logRide
+AFTER UPDATE OR DELETE ON ride
+FOR EACH ROW
+EXECUTE PROCEDURE logRide();
+
